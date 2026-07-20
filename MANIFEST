@@ -5,6 +5,8 @@ test_altkey.tcl
 
 clop-3.tm
 
+README.md
+
 st.sh
 
 # vim: syn=yaml
