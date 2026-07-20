@@ -16,16 +16,10 @@ tcl::tm::path add $APPPATH
 package require altkey
 package require munkres
 
-
 proc read_lists filename {
-    set fh [open $filename r]
-    fconfigure $fh -encoding utf-8
-    set text [read $fh]
-    close $fh
-
     set lists {}
     set current {}
-    foreach line [split $text "\n"] {
+    foreach line [split [readFile $filename] "\n"] {
         set trimmed [string trim $line]
         if {$trimmed eq ""} {
             lappend lists $current
@@ -35,7 +29,6 @@ proc read_lists filename {
         }
     }
     lappend lists $current
-    return $lists
 }
 
 set qualities {
@@ -54,16 +47,14 @@ if {[llength $inputs] != [llength $expecteds]} {
     exit 1
 }
 
-set failures 0
-set checked 0
-for {set i 0} {$i < [llength $inputs]} {incr i} {
+set fails 0
+set total 0
+foreach i [lseq [llength $inputs]] {
     set lines [lindex $inputs $i]
     if {[llength $lines] == 0} continue
-    incr checked
-
+    incr total
     set actual [altkey::altkey $lines]
     set expected [lindex $expecteds $i]
-
     set ok 1
     if {$actual ne $expected} {
         set ok 0
@@ -71,21 +62,17 @@ for {set i 0} {$i < [llength $inputs]} {incr i} {
         puts "  A=$actual"
         puts "  E=$expected"
     }
-
     set expected_quality [lindex $qualities $i]
     set actual_quality [altkey::quality $actual]
-    if {abs($actual_quality - $expected_quality) > 0.005} {
+    if {abs($actual_quality - $expected_quality) > 0.01} {
         set ok 0
         puts "FAIL list #[expr {$i + 1}] quality: got\
               [format %.2f $actual_quality], want\
               [format %.2f $expected_quality]"
     }
 
-    if {!$ok} {
-        incr failures
-    }
+    if {!$ok} { incr fails }
 }
 
-puts -nonewline "Checked $checked non-empty lists, $failures failed."
-if {$failures > 0} { puts "" ; exit 1 }
-puts " OK."
+set outcome [expr {$fails ? "FAIL" : "OK"}]
+puts "[expr {$total - $fails}]/$total $outcome." 

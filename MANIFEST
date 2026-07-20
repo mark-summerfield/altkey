@@ -3,6 +3,8 @@ altkey-1.tm
 munkres-1.tm
 test_altkey.tcl
 
+clop-3.tm
+
 st.sh
 
 # vim: syn=yaml

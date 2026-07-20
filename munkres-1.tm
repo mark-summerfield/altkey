@@ -7,7 +7,7 @@
 # "munkres" package (itself the classic O(n^3) Munkres/Hungarian method),
 # restricted to square matrices (which is all altkey needs).
 
-namespace eval ::munkres { namespace export compute make_cost_matrix }
+namespace eval ::munkres {}
 
 # ::munkres::compute cost_matrix
 #

@@ -2,7 +2,7 @@
 # Copyright © 2026 Mark Summerfield. All rights reserved.
 # License: GPLv3
 #
-# Tcl 9 port of altkey.py / accelhint (Go) / accelhints (Rust).
+# Tcl 9 port of accelkeys.py / accelhint (Go) / accelhints (Rust).
 #
 # Given a list of strings (menu options/dialog labels), computes an
 # optimal assignment of accelerator keys (indicated by a preceding
@@ -12,7 +12,7 @@
 
 package require munkres
 
-namespace eval ::altkey { namespace export ALPHABET altkey }
+namespace eval ::altkey {}
 
 set ::altkey::ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
