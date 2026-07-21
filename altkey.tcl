@@ -12,7 +12,7 @@ package require altkey
 package require clop
 
 proc main {} {
-    set parser [clop::Parser new altkey 1.0.0 1 $::PREHELP $::POSTHELP \
+    set parser [clop::Parser new altkey 1.1.0 1 $::PREHELP $::POSTHELP \
         "The input %bFILE%! with lines of menu options or dialog labels."]
     $parser set_posthelp_wrap 0
     $parser new_bool i index "Precede each line with the index position\
@@ -26,27 +26,33 @@ proc main {} {
     set show_quality [dict get $opts quality]
     set show_indexes [dict get $opts index]
     foreach filename [dict get $opts %] {
-        process_text [readFile $filename] $show_quality $show_indexes
+        process_input [readFile $filename] $show_quality $show_indexes
     }
 }
 
-proc process_text {text show_quality show_indexes} {
+proc process_input {text show_quality show_indexes} {
     set lines [list]
     foreach line [split $text \n] {
         set line [string trim $line]
         if {$line eq ""} {
-            process_list $lines $show_quality $show_indexes
+            process_lines $lines $show_quality $show_indexes
             set lines [list]
         } elseif {![string match "#*" $line]} {
             lappend lines $line
         }
     }
-    process_list $lines $show_quality $show_indexes
+    process_lines $lines $show_quality $show_indexes
 }
 
-proc process_list {lines show_quality show_indexes} {
+proc process_lines {lines show_quality show_indexes} {
     if {[llength $lines] == 0} { return }
     set result [::altkey::altkey $lines]
+    set unused [print_result $result $show_indexes]
+    if {$show_quality} { print_quality $result $show_indexes $unused }
+    puts ""
+}
+
+proc print_result {result show_indexes} {
     set unused [dict create]
     foreach c [split $::altkey::ALPHABET ""] { dict set unused $c {} }
     foreach line $result {
@@ -55,25 +61,35 @@ proc process_list {lines show_quality show_indexes} {
             set unused [dict remove $unused $c]
         }
         if {$show_indexes} {
-            if {$i >= 0} {
-                puts [format "%2d %s" $i [regsub & $line ""]]
-            } else {
-                puts $line
-            }
+            print_line [expr {$i >= 0 ? [format "%2d %s" $i $line] \
+                                      : "   $line"}] 1
         } else {
-            puts $line
+            print_line $line
         }
     }
-    if {$show_quality} {
-        set quality [::altkey::quality $result]
-        set prefix [expr {$show_indexes ? "" : "# "}]
-        puts [format "${prefix}Quality: %.0f%%" [expr {$quality * 100}]]
-        if {$quality < 1} {
-            puts "${prefix}Unused:  [join [lsort -dictionary \
-                    [dict keys $unused]] ""]"
+    return $unused
+}
+
+proc print_line {line {drop_ampersand 0}} {
+    const H $::clop::BOLD$::clop::BLUE
+    const R $::clop::RESET
+    set replacement [expr {$drop_ampersand ? "${H}\\1$R" : "\\&${H}\\1$R"}]
+    puts [expr {$::TTY ? [regsub {&(.)} $line $replacement] : $line}]
+}
+
+proc print_quality {result show_indexes unused} {
+    set quality [::altkey::quality $result]
+    set prefix [expr {$show_indexes ? "" : "# "}]
+    puts [format "${prefix}Quality: %.0f%%" [expr {$quality * 100}]]
+    if {$quality < 1} {
+        set unused [join [lsort -dictionary [dict keys $unused]] "" ]
+        if {[set i [regexp -indices -inline {[A-Z]} $unused]] ne {}} {
+            set i [lindex [lindex $i 0] 0]
+            set unused "[string range $unused 0 $i-1] [string range \
+                    $unused $i end]"
         }
+        puts "${prefix}Unused:  $unused"
     }
-    puts ""
 }
 
 const PREHELP {The input %bFILE%! is just plain text lines with one menu
@@ -87,13 +103,14 @@ const POSTHELP {%mExample:%!
 %IInput       | Default output | Output with %g-i%!
 ------------+----------------+---------------
 # Edit menu |                |
-Undo        | %y&%!Undo          |%y0%! Undo       
-Redo        | %y&%!Redo          |%y0%! Redo       
-Copy        | %y&%!Copy          |%y0%! Copy       
-Cu%y&%!t        | Cu%y&%!t           |%y2%! Cut       
-Paste       | %y&%!Paste         |%y0%! Paste      
-Find        | %y&%!Find          |%y0%! Find       
-Find Again  | Find %y&%!Again    |%y5%! Find Again}
+Undo        | &%B%bU%!ndo          |0 %B%bU%!ndo       
+Redo        | &%B%bR%!edo          |0 %B%bR%!edo       
+Copy        | &%B%bC%!opy          |0 %B%bC%!opy       
+Cu%y&%!t        | Cu&%B%bt%!           |2 Cu%B%bt%!
+Paste       | &%B%bP%!aste         |0 %B%bP%!aste      
+Find        | &%B%bF%!ind          |0 %B%bF%!ind       
+Find Again  | Find &%B%bA%!gain    |5 Find %B%bA%!gain}
 
+const TTY [dict exists [chan configure stdout] -mode]
 
 main

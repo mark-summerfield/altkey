@@ -23,10 +23,10 @@ set ::altkey::ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 # letter/digit. Strings that already contain a preset '&' are left as-is.
 proc ::altkey::altkey {lines {alphabet ""}} {
     if {$alphabet eq ""} { set alphabet $::altkey::ALPHABET }
-    set weights [::altkey::_get_weights $lines $alphabet]
-    set costMatrix [::munkres::make_cost_matrix $weights]
-    set indexes [::munkres::compute $costMatrix]
-    ::altkey::_update_lines $lines $alphabet $indexes
+    set weights [::altkey::GetWeights $lines $alphabet]
+    set cost_matrix [::munkres::make_cost_matrix $weights]
+    set indexes [::munkres::compute $cost_matrix]
+    ::altkey::UpdateLines $lines $alphabet $indexes
 }
 
 # Build a size x size profit matrix (size == [string length $alphabet]).
@@ -38,7 +38,7 @@ proc ::altkey::altkey {lines {alphabet ""}} {
 #   99 - the letter was already preset with an ampersand in the input
 # Rows beyond [llength $lines] (needed to keep the matrix square) and
 # columns never matched stay at weight 0.
-proc ::altkey::_get_weights {lines alphabet} {
+proc ::altkey::GetWeights {lines alphabet} {
     set size [string length $alphabet]
     set weights {}
     for {set initRow 0} {$initRow < $size} {incr initRow} {
@@ -46,7 +46,6 @@ proc ::altkey::_get_weights {lines alphabet} {
         for {set c 0} {$c < $size} {incr c} { lappend zeroRow 0 }
         lappend weights $zeroRow
     }
-
     set row 0
     foreach line $lines {
         set prev ""
@@ -66,7 +65,7 @@ proc ::altkey::_get_weights {lines alphabet} {
                 }
                 set current [lindex $weights $row $i]
                 if {$current < $weight} {
-                    set weights [::altkey::lreplace_2d $weights $row $i \
+                    set weights [::altkey::Lreplace2D $weights $row $i \
                             $weight]
                 }
             }
@@ -80,8 +79,8 @@ proc ::altkey::_get_weights {lines alphabet} {
 
 # Helper: replace element [r][i] of a list-of-lists matrix, returning the
 # updated matrix (lset works fine on a nested list variable in place, but
-# we take/return a value here to keep _get_weights straightforward).
-proc ::altkey::lreplace_2d {matrix r i value} {
+# we take/return a value here to keep GetWeights straightforward).
+proc ::altkey::Lreplace2D {matrix r i value} {
     set rowList [lindex $matrix $r]
     set rowList [lreplace $rowList $i $i $value]
     lreplace $matrix $r $r $rowList
@@ -90,7 +89,7 @@ proc ::altkey::lreplace_2d {matrix r i value} {
 # Apply the Munkres assignment (a list of {row col} pairs) to lines,
 # inserting '&' before the chosen accelerator character in each line
 # that doesn't already have a preset accelerator.
-proc ::altkey::_update_lines {lines alphabet indexes} {
+proc ::altkey::UpdateLines {lines alphabet indexes} {
     set rows [llength $lines]
     foreach pos $indexes {
         lassign $pos row column

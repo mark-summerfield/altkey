@@ -16,54 +16,13 @@ namespace eval ::munkres {}
 # assignment (one column per row).
 proc ::munkres::compute cost_matrix {
     if {![set n [llength $cost_matrix]]} { return }
-
-    array set C {}
+    array set costs {}
     array set marked {}
     array set row_covered {}
     array set col_covered {}
-
-    for {set i 0} {$i < $n} {incr i} {
-        set row_list [lindex $cost_matrix $i]
-        if {[llength $row_list] != $n} {
-            error "munkres::compute requires a square matrix\
-                   (row $i has [llength $row_list] columns, expected $n)"
-        }
-        set row_covered($i) 0
-        set col_covered($i) 0
-        for {set j 0} {$j < $n} {incr j} {
-            set C($i,$j) [lindex $row_list $j]
-            set marked($i,$j) 0
-        }
-    }
-
-    set Z0r 0
-    set Z0c 0
-    set step 1
-
-    while {$step ne "done"} {
-        switch -- $step {
-            1 { set step [::munkres::_step1 C $n] }
-            2 {
-                set step [::munkres::_step2 C marked row_covered \
-                        col_covered $n]
-            }
-            3 { set step [::munkres::_step3 marked col_covered $n] }
-            4 {
-                set step [::munkres::_step4 C marked row_covered \
-                        col_covered $n Z0r Z0c]
-            }
-            5 {
-                set step [::munkres::_step5 marked row_covered col_covered \
-                        $n $Z0r $Z0c]
-            }
-            6 { set step [::munkres::_step6 C row_covered col_covered $n] }
-            7 - done { set step done }
-            default {
-                error "munkres::compute: internal error, bad step '$step'"
-            }
-        }
-    }
-
+    ::munkres::PrepareArrays $cost_matrix costs marked row_covered \
+            col_covered $n
+    ::munkres::Compute costs marked row_covered col_covered $n
     set results {}
     foreach i [lseq $n] {
         foreach j [lseq $n] {
@@ -73,17 +32,74 @@ proc ::munkres::compute cost_matrix {
     return $results
 }
 
+proc ::munkres::PrepareArrays {cost_matrix costs_ marked_ row_covered_ \
+        col_covered_ n} {
+    upvar 1 $costs_ costs
+    upvar 1 $marked_ marked
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
+    for {set i 0} {$i < $n} {incr i} {
+        set row_list [lindex $cost_matrix $i]
+        if {[llength $row_list] != $n} {
+            error "munkres::compute requires a square matrix\
+                   (row $i has [llength $row_list] columns, expected $n)"
+        }
+        set row_covered($i) 0
+        set col_covered($i) 0
+        for {set j 0} {$j < $n} {incr j} {
+            set costs($i,$j) [lindex $row_list $j]
+            set marked($i,$j) 0
+        }
+    }
+}
+
+proc ::munkres::Compute {costs_ marked_ row_covered_ col_covered_ n} {
+    upvar 1 $costs_ costs
+    upvar 1 $marked_ marked
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
+    set z0r 0
+    set z0c 0
+    set step 1
+    while {$step ne "done"} {
+        switch -- $step {
+            1 { set step [::munkres::Step1 costs $n] }
+            2 {
+                set step [::munkres::Step2 costs marked row_covered \
+                        col_covered $n]
+            }
+            3 { set step [::munkres::Step3 marked col_covered $n] }
+            4 {
+                set step [::munkres::Step4 costs marked row_covered \
+                        col_covered $n z0r z0c]
+            }
+            5 {
+                set step [::munkres::Step5 marked row_covered col_covered \
+                        $n $z0r $z0c]
+            }
+            6 {
+                set step [::munkres::Step6 costs row_covered col_covered $n]
+            }
+            7 - done { set step done }
+            default {
+                error "munkres::compute: internal error, bad step '$step'"
+            }
+        }
+    }
+}
+
 # For each row, find the smallest element and subtract it from every
 # element in its row. Go to Step 2.
-proc ::munkres::_step1 {C_name n} {
-    upvar 1 $C_name C
-
+proc ::munkres::Step1 {costs_ n} {
+    upvar 1 $costs_ costs
     foreach i [lseq $n] {
-        set minval $C($i,0)
+        set minval $costs($i,0)
         for {set j 1} {$j < $n} {incr j} {
-            if {$C($i,$j) < $minval} { set minval $C($i,$j) }
+            if {$costs($i,$j) < $minval} { set minval $costs($i,$j) }
         }
-        foreach j [lseq $n] { set C($i,$j) [expr {$C($i,$j) - $minval}] }
+        foreach j [lseq $n] {
+            set costs($i,$j) [expr {$costs($i,$j) - $minval}]
+        }
     }
     return 2
 }
@@ -91,16 +107,15 @@ proc ::munkres::_step1 {C_name n} {
 # Find a zero (Z) in the resulting matrix. If there is no starred zero
 # in its row or column, star Z. Repeat for each element in the matrix.
 # Go to Step 3.
-proc ::munkres::_step2 {C_name marked_name row_covered_name \
-        col_covered_name n} {
-    upvar 1 $C_name C
-    upvar 1 $marked_name marked
-    upvar 1 $row_covered_name row_covered
-    upvar 1 $col_covered_name col_covered
-
+proc ::munkres::Step2 {costs_ marked_ row_covered_ col_covered_ n} {
+    upvar 1 $costs_ costs
+    upvar 1 $marked_ marked
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
     foreach i [lseq $n] {
         foreach j [lseq $n] {
-            if {$C($i,$j) == 0 && !$col_covered($j) && !$row_covered($i)} {
+            if {$costs($i,$j) == 0 && !$col_covered($j) && \
+                    !$row_covered($i)} {
                 set marked($i,$j) 1
                 set col_covered($j) 1
                 set row_covered($i) 1
@@ -108,17 +123,16 @@ proc ::munkres::_step2 {C_name marked_name row_covered_name \
             }
         }
     }
-    ::munkres::_clear_covers row_covered col_covered $n
+    ::munkres::ClearCovers row_covered col_covered $n
     return 3
 }
 
 # Cover each column containing a starred zero. If all n columns are
 # covered, the starred zeros describe a complete set of unique
 # assignments: go to DONE (7). Otherwise go to Step 4.
-proc ::munkres::_step3 {marked_name col_covered_name n} {
-    upvar 1 $marked_name marked
-    upvar 1 $col_covered_name col_covered
-
+proc ::munkres::Step3 {marked_ col_covered_ n} {
+    upvar 1 $marked_ marked
+    upvar 1 $col_covered_ col_covered
     set count 0
     foreach i [lseq $n] {
         foreach j [lseq $n] {
@@ -136,30 +150,29 @@ proc ::munkres::_step3 {marked_name col_covered_name n} {
 # the row containing this primed zero, go to Step 5. Otherwise, cover
 # this row and uncover the column containing the starred zero. Continue
 # until there are no uncovered zeros left; go to Step 6.
-proc ::munkres::_step4 {C_name marked_name row_covered_name \
-        col_covered_name n Z0r_name Z0c_name} {
-    upvar 1 $C_name C
-    upvar 1 $marked_name marked
-    upvar 1 $row_covered_name row_covered
-    upvar 1 $col_covered_name col_covered
-    upvar 1 $Z0r_name Z0r
-    upvar 1 $Z0c_name Z0c
-
+proc ::munkres::Step4 {costs_ marked_ row_covered_ col_covered_ n z0r_ \
+        z0c_} {
+    upvar 1 $costs_ costs
+    upvar 1 $marked_ marked
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
+    upvar 1 $z0r_ z0r
+    upvar 1 $z0c_ z0c
     set row 0
     set col 0
     while {1} {
-        lassign [::munkres::_find_a_zero C row_covered col_covered $n $row \
-                $col] row col
+        lassign [::munkres::FindAZero costs row_covered col_covered $n \
+                $row $col] row col
         if {$row < 0} { return 6 }
         set marked($row,$col) 2
-        set star_col [::munkres::_find_star_in_row marked $n $row]
+        set star_col [::munkres::FindStarInRow marked $n $row]
         if {$star_col >= 0} {
             set col $star_col
             set row_covered($row) 1
             set col_covered($col) 0
         } else {
-            set Z0r $row
-            set Z0c $col
+            set z0r $row
+            set z0c $col
             return 5
         }
     }
@@ -172,34 +185,30 @@ proc ::munkres::_step4 {C_name marked_name row_covered_name \
 # terminates at a primed zero that has no starred zero in its column.
 # Unstar each starred zero of the series, star each primed zero of the
 # series, erase all primes, and uncover every line. Return to Step 3.
-proc ::munkres::_step5 {marked_name row_covered_name col_covered_name n \
-        Z0r Z0c} {
-    upvar 1 $marked_name marked
-    upvar 1 $row_covered_name row_covered
-    upvar 1 $col_covered_name col_covered
-
+proc ::munkres::Step5 {marked_ row_covered_ col_covered_ n z0r z0c} {
+    upvar 1 $marked_ marked
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
     array set path_r {}
     array set path_c {}
     set count 0
-    set path_r($count) $Z0r
-    set path_c($count) $Z0c
-
+    set path_r($count) $z0r
+    set path_c($count) $z0c
     while {1} {
-        set row [::munkres::_find_star_in_col marked $n $path_c($count)]
+        set row [::munkres::FindStarInColumn marked $n $path_c($count)]
         if {$row < 0} { break }
         incr count
         set path_r($count) $row
         set path_c($count) $path_c([expr {$count - 1}])
 
-        set col [::munkres::_find_prime_in_row marked $n $path_r($count)]
+        set col [::munkres::FindPrimeInRow marked $n $path_r($count)]
         incr count
         set path_r($count) $path_r([expr {$count - 1}])
         set path_c($count) $col
     }
-
-    ::munkres::_convert_path marked path_r path_c $count
-    ::munkres::_clear_covers row_covered col_covered $n
-    ::munkres::_erase_primes marked $n
+    ::munkres::ConvertPath marked path_r path_c $count
+    ::munkres::ClearCovers row_covered col_covered $n
+    ::munkres::ErasePrimes marked $n
     return 3
 }
 
@@ -207,38 +216,35 @@ proc ::munkres::_step5 {marked_name row_covered_name col_covered_name n \
 # of each covered row, and subtract it from every element of each
 # uncovered column. Return to Step 4 without altering stars, primes, or
 # covered lines.
-proc ::munkres::_step6 {C_name row_covered_name col_covered_name n} {
-    upvar 1 $C_name C
-    upvar 1 $row_covered_name row_covered
-    upvar 1 $col_covered_name col_covered
-
-    set minval [::munkres::_find_smallest C row_covered col_covered $n]
+proc ::munkres::Step6 {costs_ row_covered_ col_covered_ n} {
+    upvar 1 $costs_ costs
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
+    set minval [::munkres::FindSmallest costs row_covered col_covered $n]
     foreach i [lseq $n] {
         foreach j [lseq $n] {
             if {$row_covered($i)} {
-                set C($i,$j) [expr {$C($i,$j) + $minval}]
+                set costs($i,$j) [expr {$costs($i,$j) + $minval}]
             }
             if {!$col_covered($j)} {
-                set C($i,$j) [expr {$C($i,$j) - $minval}]
+                set costs($i,$j) [expr {$costs($i,$j) - $minval}]
             }
         }
     }
     return 4
 }
 
-proc ::munkres::_find_smallest {C_name row_covered_name col_covered_name \
-        n} {
-    upvar 1 $C_name C
-    upvar 1 $row_covered_name row_covered
-    upvar 1 $col_covered_name col_covered
-
+proc ::munkres::FindSmallest {costs_ row_covered_ col_covered_ n} {
+    upvar 1 $costs_ costs
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
     set minval {}
     foreach i [lseq $n] {
         if {$row_covered($i)} continue
         foreach j [lseq $n] {
             if {$col_covered($j)} continue
-            if {$minval eq {} || $C($i,$j) < $minval} {
-                set minval $C($i,$j)
+            if {$minval eq {} || $costs($i,$j) < $minval} {
+                set minval $costs($i,$j)
             }
         }
     }
@@ -250,21 +256,19 @@ proc ::munkres::_find_smallest {C_name row_covered_name col_covered_name \
 
 # Find the first uncovered zero, searching row-major starting at
 # (i0, j0) and wrapping around -- matching the reference implementation.
-proc ::munkres::_find_a_zero {C_name row_covered_name col_covered_name n \
-        i0 j0} {
-    upvar 1 $C_name C
-    upvar 1 $row_covered_name row_covered
-    upvar 1 $col_covered_name col_covered
-
+proc ::munkres::FindAZero {costs_ row_covered_ col_covered_ n i0 j0} {
+    upvar 1 $costs_ costs
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
     set row -1
     set col -1
     set i $i0
     set done 0
-
     while {!$done} {
         set j $j0
         while {1} {
-            if {$C($i,$j) == 0 && !$row_covered($i) && !$col_covered($j)} {
+            if {$costs($i,$j) == 0 && !$row_covered($i) && \
+                    !$col_covered($j)} {
                 set row $i
                 set col $j
                 set done 1
@@ -278,51 +282,46 @@ proc ::munkres::_find_a_zero {C_name row_covered_name col_covered_name n \
     list $row $col
 }
 
-proc ::munkres::_find_star_in_row {marked_name n row} {
-    upvar 1 $marked_name marked
+proc ::munkres::FindStarInRow {marked_ n row} {
+    upvar 1 $marked_ marked
     foreach j [lseq $n] { if {$marked($row,$j) == 1} { return $j } }
     return -1
 }
 
-proc ::munkres::_find_star_in_col {marked_name n col} {
-    upvar 1 $marked_name marked
+proc ::munkres::FindStarInColumn {marked_ n col} {
+    upvar 1 $marked_ marked
     foreach i [lseq $n] { if {$marked($i,$col) == 1} { return $i } }
     return -1
 }
 
-proc ::munkres::_find_prime_in_row {marked_name n row} {
-    upvar 1 $marked_name marked
+proc ::munkres::FindPrimeInRow {marked_ n row} {
+    upvar 1 $marked_ marked
     foreach j [lseq $n] { if {$marked($row,$j) == 2} { return $j } }
     return -1
 }
 
-proc ::munkres::_convert_path {marked_name path_r_name path_c_name count} {
-    upvar 1 $marked_name marked
-    upvar 1 $path_r_name path_r
-    upvar 1 $path_c_name path_c
-
+proc ::munkres::ConvertPath {marked_ path_r_ path_c_ count} {
+    upvar 1 $marked_ marked
+    upvar 1 $path_r_ path_r
+    upvar 1 $path_c_ path_c
     for {set i 0} {$i <= $count} {incr i} {
         set r $path_r($i)
         set c $path_c($i)
-        if {$marked($r,$c) == 1} {
-            set marked($r,$c) 0
-        } else {
-            set marked($r,$c) 1
-        }
+        set marked($r,$c) [expr {$marked($r,$c) == 1 ? 0 : 1}]
     }
 }
 
-proc ::munkres::_clear_covers {row_covered_name col_covered_name n} {
-    upvar 1 $row_covered_name row_covered
-    upvar 1 $col_covered_name col_covered
+proc ::munkres::ClearCovers {row_covered_ col_covered_ n} {
+    upvar 1 $row_covered_ row_covered
+    upvar 1 $col_covered_ col_covered
     foreach i [lseq $n] {
         set row_covered($i) 0
         set col_covered($i) 0
     }
 }
 
-proc ::munkres::_erase_primes {marked_name n} {
-    upvar 1 $marked_name marked
+proc ::munkres::ErasePrimes {marked_ n} {
+    upvar 1 $marked_ marked
     foreach i [lseq $n] {
         foreach j [lseq $n] {
             if {$marked($i,$j) == 2} { set marked($i,$j) 0 }
