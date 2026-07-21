@@ -10,5 +10,6 @@ nagelfar.sh \
 du -sh .git
 ls -sh .*.str
 clc -s -l tcl
+./test_altkey.tcl
 str s
 git st
