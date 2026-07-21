@@ -12,7 +12,15 @@ package require altkey
 package require clop
 
 proc main {} {
-    set parser [clop::Parser new altkey 1.1.0 1 $::PREHELP $::POSTHELP \
+    set prehelp $::PREHELP
+    if {[set filename [get_ini_filename]] ne ""} {
+        set prehelp "$prehelp %y$filename%!; this"
+    } else {
+        set prehelp "$prehelp %yaltkey.cfg%! in the user’s\
+            configuration folder and"
+    }
+    set prehelp "$prehelp will override the command line."
+    set parser [clop::Parser new altkey 1.1.0 1 $prehelp $::POSTHELP \
         "The input %bFILE%! with lines of menu options or dialog labels."]
     $parser set_posthelp_wrap 0
     $parser new_bool i index "Precede each line with the index position\
@@ -25,8 +33,20 @@ proc main {} {
     set opts [$parser parse $::argv]
     set show_quality [dict get $opts quality]
     set show_indexes [dict get $opts index]
+    if {$filename ne ""} { read_ini $filename show_quality show_indexes }
     foreach filename [dict get $opts %] {
         process_input [readFile $filename] $show_quality $show_indexes
+    }
+}
+
+proc read_ini {filename show_quality_ show_indexes_} {
+    upvar 1 $show_quality_ show_quality
+    upvar 1 $show_indexes_ show_indexes
+    foreach line [split [readFile $filename] \n] {
+        switch $line {
+            -i - --index { set show_indexes 1 }
+            -q - --quality { set show_quality 1 }
+        }
     }
 }
 
@@ -92,11 +112,25 @@ proc print_quality {result show_indexes unused} {
     }
 }
 
+proc get_ini_filename {} {
+    set name altkey.cfg
+    set home [file home]
+    set names [list [file join $home .config/$name] \
+                    [file join $home .$name] $::APPPATH/$name]
+    set index [expr {[file isdirectory [file join $home .config]] ? 0 : 1}]
+    foreach name $names {
+        set name [file normalize $name]
+        if {[file exists $name]} { return $name }
+    }
+}
+
 const PREHELP {The input %bFILE%! is just plain text lines with one menu
     option or dialog label per line and with any preset accelerators
     preceded by an ampersand. If you want to have multiple lists (e.g.,
     File menu, Edit menu, a dialog, etc.), just separate each list with
-    a blank line. Comments may be included on lines that begin with %y#%!.}
+    a blank line. Comments may be included on lines that begin with
+    %y#%!. The %g-i%! or %g--index%! and %g-q%! or %g--quality%! options
+    may be specified one per line in the file}
 
 const POSTHELP {%mExample:%!
 
