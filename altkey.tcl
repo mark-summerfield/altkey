@@ -19,10 +19,13 @@ proc main {} {
         set prehelp "$prehelp %yaltkey.cfg%! in the user’s\
             configuration folder and"
     }
-    set prehelp "$prehelp will override the command line."
+    set prehelp "$prehelp will override the defaults."
     set parser [clop::Parser new altkey 1.1.0 1 $prehelp $::POSTHELP \
         "The input %bFILE%! with lines of menu options or dialog labels."]
     $parser set_posthelp_wrap 0
+    if {$filename ne ""} {
+        $parser set_configured_values [read_ini $filename]
+    }
     $parser new_bool i index "Precede each line with the index position\
         of the character to be accelerated \[default precede with %y&%!\]."
     $parser new_bool q quality "Add an extra line indicating the quality\
@@ -33,21 +36,20 @@ proc main {} {
     set opts [$parser parse $::argv]
     set show_quality [dict get $opts quality]
     set show_indexes [dict get $opts index]
-    if {$filename ne ""} { read_ini $filename show_quality show_indexes }
     foreach filename [dict get $opts %] {
         process_input [readFile $filename] $show_quality $show_indexes
     }
 }
 
-proc read_ini {filename show_quality_ show_indexes_} {
-    upvar 1 $show_quality_ show_quality
-    upvar 1 $show_indexes_ show_indexes
+proc read_ini filename {
+    set configured_values [dict create]
     foreach line [split [readFile $filename] \n] {
         switch $line {
-            -i - --index { set show_indexes 1 }
-            -q - --quality { set show_quality 1 }
+            -i - --index { dict set configured_values index 1 }
+            -q - --quality { dict set configured_values quality 1 }
         }
     }
+    return $configured_values
 }
 
 proc process_input {text show_quality show_indexes} {

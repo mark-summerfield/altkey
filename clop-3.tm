@@ -10,7 +10,6 @@ namespace eval clop {
     if {[dict exists [chan configure stdout] -mode]} { ;# tty
         const BOLD "\x1B\[1m"
         const ITALIC "\x1B\[3m"
-        const UNDERLINE "\x1B\[4m"
         const RED "\x1B\[31m"
         const GREEN "\x1B\[32m"
         const BLUE "\x1B\[34m"
@@ -21,7 +20,6 @@ namespace eval clop {
     } else {
         const BOLD ""
         const ITALIC ""
-        const UNDERLINE ""
         const RED ""
         const GREEN ""
         const BLUE ""
@@ -131,6 +129,7 @@ oo::class create clop::Parser {
     variable ShortNames
     variable LongNames
     variable SubparserName
+    variable ConfiguredValues
 }
 
 proc clop::subparser {name parser {positional_count ""} {shorthelp ""} \
@@ -156,6 +155,7 @@ oo::define clop::Parser constructor {appname appversion \
     set PostHelpWrap 1
     set PositionalHelp $positional_help
     set Opts [list]
+    set ConfiguredValues [dict create]
 }
 
 oo::define clop::Parser method get_opts {} { return $Opts }
@@ -190,6 +190,13 @@ oo::define clop::Parser method n_opts {} { llength $Opts }
 oo::define clop::Parser method subparser_name {} { return $SubparserName }
 oo::define clop::Parser method set_subparser_name name {
     set SubparserName $name
+}
+
+oo::define clop::Parser method configured_values {} {
+    return $ConfiguredValues
+}
+oo::define clop::Parser method set_configured_values configured_values {
+    set ConfiguredValues $configured_values
 }
 
 oo::define clop::Parser method prehelp {} { return $PreHelp }
@@ -664,7 +671,7 @@ oo::define clop::Parser method parse argv {
             dict lappend pairs % $arg
         }
     }
-    set opt_for_name [my UseDefaultsForOptionsNotGiven pairs]
+    set opt_for_name [my SetValuesForUnspecifiedOptions pairs]
     my ValidateOptions $opt_for_name $pairs
     my CheckPositionalCount [llength [dict get $pairs %]]
     return $pairs
@@ -810,7 +817,7 @@ oo::define clop::Parser method MaybeOptionForName name {
     }
 }
 
-oo::define clop::Parser method UseDefaultsForOptionsNotGiven pairs_ {
+oo::define clop::Parser method SetValuesForUnspecifiedOptions pairs_ {
     upvar $pairs_ pairs
     set opt_for_name [dict create]
     foreach opt $Opts {
@@ -829,7 +836,10 @@ oo::define clop::Parser method UseDefaultsForOptionsNotGiven pairs_ {
                     }
                 }
             }
-            if {$name ne ""} { dict set pairs $name [$opt get] }
+            if {$name ne ""} {
+                dict set pairs $name \
+                    [dict getdef $ConfiguredValues $name [$opt get]]
+            }
         }
     }
     return $opt_for_name
