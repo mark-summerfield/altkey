@@ -1,0 +1,161 @@
+#!/usr/bin/env wish9
+# Copyright © 2026 Mark Summerfield. All rights reserved.
+
+if {![catch {file readlink [info script]} name]} {
+    const APPPATH [file dirname $name]
+} else {
+    const APPPATH [file normalize [file dirname [info script]]]
+}
+tcl::tm::path add $APPPATH
+
+package require altkey
+package require inifile
+
+oo::singleton create App {}
+
+oo::define App constructor {} {
+    tk appname AltKey
+    Config new ;# initialize
+    my make_win
+    my show
+}
+
+oo::define App method make_win {} {
+    my prepare_win
+    my make_widgets
+    my make_layout
+    my make_bindings
+}
+
+oo::define App method prepare_win {} {
+    option add *insertOffTime 0
+    ttk::style configure . -insertofftime 0
+    wm withdraw .
+    wm minsize . 400 320
+    wm title . [tk appname]
+    wm attributes . -type dialog 
+    wm iconname . [tk appname]
+    catch {wm iconphoto . -default [image create photo \
+            -file $::APPPATH/images/icon.svg]}
+}
+
+oo::define App method make_widgets {} {
+    ttk::frame .mf ;# main frame
+    ttk::frame .mf.lf ;# left (buttons) frame
+    # TODO image, command, etc.
+    ttk::button .mf.lf.new_button -text New -underline 0
+    ttk::button .mf.lf.open_button -text Open… -underline 0
+    ttk::button .mf.lf.save_button -text Save -underline 0
+    ttk::button .mf.lf.saveas_button -text "Save As…" -underline 5
+    ttk::button .mf.lf.options_button -text Options… -underline 0
+    ttk::button .mf.lf.about_button -text About -underline 0
+    ttk::button .mf.lf.quit_button -text Quit -underline 0
+    tk::text .mf.input_text
+    tk::text .mf.output_text
+    ttk::frame .mf.bf ;# bottom frame (status)
+    # TODO Unused label | Unused chars label | Quality label Quality value
+}
+
+oo::define App method make_layout {} {
+    # TODO
+    grid .mf.lf -row 0 -column 0 -sticky ns
+    set side top
+    foreach name {new open save saveas bottom quit about options} {
+        if {$name eq "bottom"} {
+            set side $name
+            continue
+        }
+        pack .mf.lf.${name}_button -side $side -anchor w -padx 3 -pady 3
+    }
+    grid .mf.input_text -row 0 -column 1 -sticky news
+    grid .mf.output_text -row 0 -column 2 -sticky news
+    grid rowconfigure .mf 0 -weight 1
+    grid columnconfigure .mf 1 -weight 1
+    grid columnconfigure .mf 2 -weight 1
+    pack .mf -expand 1 -fill both
+}
+
+oo::define App method make_bindings {} {
+    # TODO
+    bind . <Escape> [callback on_quit]
+    bind . <Control-q> [callback on_quit]
+    wm protocol . WM_DELETE_WINDOW [callback on_quit]
+}
+
+oo::define App method show {} {
+    wm deiconify .
+    # TODO
+    wm geometry . [[Config new] geometry]
+    raise .
+}
+
+oo::define App method on_quit {} {
+    # TODO
+    # save current
+    [Config new] save
+    destroy .
+}
+
+# Also handles tk scaling
+oo::singleton create Config {
+    variable Filename
+    variable Geometry
+    variable LastFilename
+}
+
+oo::define Config constructor {} {
+    set Filename [get_ini_filename]
+    set Geometry [wm geometry .]
+    set LastFilename ""
+    if {[file exists $Filename] && [file size $Filename]} {
+        set ini [ini::open $Filename -encoding utf-8 r]
+        try {
+            tk scaling [ini::value $ini General Scale [tk scaling]]
+            set Geometry [ini::value $ini General Geometry $Geometry]
+            set LastFilename [ini::value $ini General LastFilename \
+                    $LastFilename]
+        } finally {
+            ini::close $ini
+        }
+    }
+}
+
+oo::define Config method save {} {
+    set ini [ini::open $Filename -encoding utf-8 w]
+    try {
+        ini::set $ini General Scale [tk scaling]
+        ini::set $ini General Geometry [wm geometry .]
+        ini::set $ini General LastFilename $LastFilename
+        ini::commit $ini
+    } finally {
+        ini::close $ini
+    }
+}
+
+oo::define Config method geometry {{geometry ""}} {
+    if {$geometry ne "" && $geometry ne $Geometry} {
+        set Geometry $geometry
+    }
+    return $Geometry
+}
+
+oo::define Config method last_filename {{last_filename {}}} {
+    if {$last_filename ne {}} { set LastFilename $last_filename }
+    return $LastFilename
+}
+
+proc get_ini_filename {} {
+    set name [tk appname].ini
+    puts $name
+    set home [file home]
+    set names [list [file join $home .config/$name] \
+                    [file join $home .$name] $::APPPATH/$name]
+    set index [expr {[file isdirectory [file join $home .config]] ? 0 : 1}]
+    foreach name $names {
+        set name [file normalize $name]
+        if {[file exists $name]} { return $name }
+    }
+    lindex $names 0
+}
+
+App new
