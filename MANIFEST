@@ -1,4 +1,7 @@
-altkey.tk
+# TODO
+# if altkey.tcl run with no args & alt.key is in cwd then use that as
+# the input file and write the result to tempdir/alt.out
+# (should make it easier to do live changes)
 
 altkey.tcl
 altkey-1.tm
@@ -10,19 +13,5 @@ clop-3.tm
 README.md
 
 st.sh
-
-alt.key — AltKey
-&New | &Open… | &Save | Save &As… | &Options… | &About | &Quit
-
-| # Edit menu |                |
-| Undo        | 0  &Undo       |
-| Redo        | 0  &Redo       |
-| Copy        | 0  &Copy       |
-| Cu&t        | 2  Cu&t        |
-| Paste       | 0  &Paste      |
-| Find        | 0  &Find       |
-| Find Again  | 5  Find &Again |
-
-Unused:  0123456789 BGHJKQRSVWXYZ | Quality: 40%
 
 # vim: syn=yaml
