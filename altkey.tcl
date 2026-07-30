@@ -20,8 +20,11 @@ proc main {} {
             configuration folder and"
     }
     set prehelp "$prehelp will override the defaults."
-    set parser [clop::Parser new altkey 1.1.0 1 $prehelp $::POSTHELP \
-        "The input %bFILE%! with lines of menu options or dialog labels."]
+    set parser [clop::Parser new altkey 1.1.0 1-2 $prehelp $::POSTHELP \
+        "The input %bINFILE%! with lines of menu options or dialog labels.
+        The output %gOUTFILE%! is where the result is written \[default
+        %ystdout%!\]."]
+    $parser set_positional_line "%b<INFILE>%! %g\[OUTFILE\]%!"
     $parser set_posthelp_wrap 0
     if {$filename ne ""} {
         $parser set_configured_values [read_ini $filename]
@@ -36,9 +39,11 @@ proc main {} {
     set opts [$parser parse $::argv]
     set show_quality [dict get $opts quality]
     set show_indexes [dict get $opts index]
-    foreach filename [dict get $opts %] {
-        process_input [readFile $filename] $show_quality $show_indexes
-    }
+    set filenames [dict get $opts %]
+    set infile [lindex $filenames 0]
+    set outfile [expr {[llength $filenames] > 1 ? [lindex $filenames 1] \
+                                                : "stdout"}]
+    process_input [readFile $infile] $outfile $show_quality $show_indexes
 }
 
 proc read_ini filename {
@@ -52,29 +57,39 @@ proc read_ini filename {
     return $configured_values
 }
 
-proc process_input {text show_quality show_indexes} {
-    set lines [list]
-    foreach line [split $text \n] {
-        set line [string trim $line]
-        if {$line eq ""} {
-            process_lines $lines $show_quality $show_indexes
-            set lines [list]
-        } elseif {![string match "#*" $line]} {
-            lappend lines $line
-        }
+proc process_input {text outfile show_quality show_indexes} {
+    if {$outfile eq "stdout"} {
+        set out stdout
+    } else {
+        set out [open $outfile w]
+        chan configure $out -encoding utf-8
     }
-    process_lines $lines $show_quality $show_indexes
+    try {
+        set lines [list]
+        foreach line [split $text \n] {
+            set line [string trim $line]
+            if {$line eq ""} {
+                process_lines $out $lines $show_quality $show_indexes
+                set lines [list]
+            } elseif {![string match "#*" $line]} {
+                lappend lines $line
+            }
+        }
+        process_lines $out $lines $show_quality $show_indexes
+    } finally {
+        if {$outfile ne "stdout"} { close $out }
+    }
 }
 
-proc process_lines {lines show_quality show_indexes} {
+proc process_lines {out lines show_quality show_indexes} {
     if {[llength $lines] == 0} { return }
     set result [::altkey::altkey $lines]
-    set unused [print_result $result $show_indexes]
-    if {$show_quality} { print_quality $result $show_indexes $unused }
-    puts ""
+    set unused [print_result $out $result $show_indexes]
+    if {$show_quality} { print_quality $out $result $show_indexes $unused }
+    puts $out ""
 }
 
-proc print_result {result show_indexes} {
+proc print_result {out result show_indexes} {
     set unused [dict create]
     foreach c [split $::altkey::ALPHABET ""] { dict set unused $c {} }
     foreach line $result {
@@ -83,26 +98,33 @@ proc print_result {result show_indexes} {
             set unused [dict remove $unused $c]
         }
         if {$show_indexes} {
-            print_line [expr {$i >= 0 ? [format "%2d %s" $i $line] \
+            print_line $out [expr {$i >= 0 ? [format "%2d %s" $i $line] \
                                       : "   $line"}] 1
         } else {
-            print_line $line
+            print_line $out $line
         }
     }
     return $unused
 }
 
-proc print_line {line {drop_ampersand 0}} {
-    const H $::clop::BOLD$::clop::BLUE
-    const R $::clop::RESET
-    set replacement [expr {$drop_ampersand ? "${H}\\1$R" : "\\&${H}\\1$R"}]
-    puts [expr {$::TTY ? [regsub {&(.)} $line $replacement] : $line}]
+proc print_line {out line {drop_ampersand 0}} {
+    if {$out eq "stdout"} {
+        const H $::clop::BOLD$::clop::BLUE
+        const R $::clop::RESET
+        set replacement [expr {$drop_ampersand ? "${H}\\1$R" \
+                                               : "\\&${H}\\1$R"}]
+        puts $out [expr {$::TTY ? [regsub {&(.)} $line $replacement] \
+                                : $line}]
+    } else {
+        if {$drop_ampersand} { set line [regsub & $line ""] }
+        puts $out $line
+    }
 }
 
-proc print_quality {result show_indexes unused} {
+proc print_quality {out result show_indexes unused} {
     set quality [::altkey::quality $result]
     set prefix [expr {$show_indexes ? "" : "# "}]
-    puts [format "${prefix}Quality: %.0f%%" [expr {$quality * 100}]]
+    puts $out [format "${prefix}Quality: %.0f%%" [expr {$quality * 100}]]
     if {$quality < 1} {
         set unused [join [lsort -dictionary [dict keys $unused]] "" ]
         if {[set i [regexp -indices -inline {[A-Z]} $unused]] ne {}} {
@@ -110,7 +132,7 @@ proc print_quality {result show_indexes unused} {
             set unused "[string range $unused 0 $i-1] [string range \
                     $unused $i end]"
         }
-        puts "${prefix}Unused:  $unused"
+        puts $out "${prefix}Unused:  $unused"
     }
 }
 
@@ -126,13 +148,14 @@ proc get_ini_filename {} {
     }
 }
 
-const PREHELP {The input %bFILE%! is just plain text lines with one menu
+const PREHELP {The input %bINFILE%! is just plain text lines with one menu
     option or dialog label per line and with any preset accelerators
-    preceded by an ampersand. If you want to have multiple lists (e.g.,
-    File menu, Edit menu, a dialog, etc.), just separate each list with
-    a blank line. Comments may be included on lines that begin with
-    %y#%!. The %g-i%! or %g--index%! and %g-q%! or %g--quality%! options
-    may be specified one per line in the file}
+    preceded by an ampersand. The output is written to the %gOUTFILE%!
+    if given, otherwise to %ystdout%!. If you want to have multiple
+    lists (e.g., File menu, Edit menu, a dialog, etc.), just separate
+    each list with a blank line. Comments may be included on lines that
+    begin with %y#%!. The %g-i%! or %g--index%! and %g-q%! or
+    %g--quality%! options may be specified one per line in the file}
 
 const POSTHELP {%mExample:%!
 
