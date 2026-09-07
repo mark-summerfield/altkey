@@ -1,4 +1,4 @@
-# altkey.tcl
+# AltKey
 
 `altkey.tcl` is a command line tool for for calculating keyboard
 accelerators (e.g., for menu options or dialog labels).
