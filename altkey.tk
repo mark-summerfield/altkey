@@ -12,5 +12,4 @@ package require gui
 
 const VERSION 0.1.0
 
-set gui [Gui new]
-$gui show
+[Gui new] show

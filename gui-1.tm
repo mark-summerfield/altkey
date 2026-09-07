@@ -21,8 +21,7 @@ oo::define Gui constructor {} {
 oo::define Gui method show {} {
     wm deiconify .
     wm minsize . 720 640
-    set config [Config new]
-    wm geometry . [$config geometry]
+    wm geometry . [[Config new] geometry]
     raise .
     update
     my on_startup
@@ -39,13 +38,9 @@ oo::define Gui method prepare_ui {} {
     wm title . [tk appname]
     wm iconname . [tk appname]
     wm iconphoto . -default [ui::icon icon.svg]
-    ttk::style configure Treeview -rowheight \
-        [font metrics BigFont -linespace]
-    ttk::style configure Treeview.Item -indicatorsize 0
 }
 
 oo::define Gui method make_widgets {} {
-    set config [Config new]
     ttk::frame .mf
     ttk::frame .mf.cf
     ttk::frame .mf.cf.ctrl_frame
@@ -113,7 +108,6 @@ oo::define Gui method make_layout {} {
 }
 
 oo::define Gui method make_bindings {} {
-    bind . <Escape> [callback on_quit]
     bind . <Alt-a> [callback on_saveas]
     bind . <Alt-b> [callback on_about]
     bind . <Alt-c> [callback on_config]
@@ -142,6 +136,7 @@ oo::define Gui method on_new {} {
 oo::define Gui method on_open {} {
     my maybe_save
     puts on_open ;# TODO
+    #wm title . "[file tail $TheFilename] — [tk appname]"
 }
 
 oo::define Gui method on_save {} {
@@ -154,6 +149,7 @@ oo::define Gui method on_save {} {
 
 oo::define Gui method on_saveas {} {
     puts on_saveas ;# TODO
+    #wm title . "[file tail $TheFilename] — [tk appname]"
     # TODO once i've got a filename set TheFilename & call my on_save
 }
 
