@@ -1,9 +1,10 @@
 altkey.tk
 gui-1.tm
+basic_text_edit-1.tm
 config-1.tm
 config_form-1.tm
 about_form-1.tm
-basic_text_edit-1.tm
+maybe_save_form-1.tm
 
 altkey.tcl
 altkey-1.tm
@@ -16,5 +17,8 @@ ui-1.tm
 README.md
 
 st.sh
+
+# NOTE whenever the Unhinted text edit is changed call
+# apply_unhinted_highlighting & apply_hinted_highlighting
 
 # vim: syn=yaml

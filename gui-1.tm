@@ -4,6 +4,7 @@ package require about_form
 package require basic_text_edit
 package require config
 package require config_form
+package require maybe_save_form
 package require ui
 
 oo::singleton create Gui {
@@ -26,7 +27,7 @@ oo::define Gui method show {} {
     wm geometry . [[Config new] geometry]
     raise .
     update
-    my on_unhinted
+    my on_startup
 }
 
 oo::define Gui method make_ui {} {
@@ -138,35 +139,58 @@ oo::define Gui method make_bindings {} {
     wm protocol . WM_DELETE_WINDOW [callback on_quit]
 }
 
+oo::define Gui method on_startup {} {
+    if {$::argc} {
+        set TheFilename [lindex $::argv 0]
+        my read_file
+    } else {
+        if {[set TheFilename [[Config new] last_filename]] ne ""} {
+            my read_file
+        }
+    }
+    $UnhintedText focus
+}
+
 oo::define Gui method on_unhinted {} { $UnhintedText focus }
 
 oo::define Gui method on_hinted {} { $HintedText focus }
 
 oo::define Gui method on_new {} {
-    my maybe_save
+    if {![my maybe_save]} return
     set TheFilename ""
     wm title . "Unsaved — [tk appname]"
-    puts on_new ;# TODO
+    my clear
 }
 
 oo::define Gui method on_open {} {
-    my maybe_save
-    puts on_open ;# TODO
-    #wm title . "[file tail $TheFilename] — [tk appname]"
+    if {![my maybe_save]} return
+    set dir [expr {$TheFilename eq "" ? "." : [file dirname $TheFilename]}]
+    if {[set filename [tk_getOpenFile -initialdir $dir \
+            -filetypes {{{AltKey files} {.key}} {{All files} {*}}} \
+            -title "[tk appname] — Open" -parent .]] ne ""} {
+        set TheFilename $filename
+        my read_file
+    }
 }
 
 oo::define Gui method on_save {} {
     if {$TheFilename eq ""} {
         my on_saveas
     } else {
-        puts on_save ;# TODO
+        writeFile $TheFilename [$UnhintedText all]
+        $UnhintedText edit modified 0
     }
 }
 
 oo::define Gui method on_saveas {} {
-    puts on_saveas ;# TODO
-    #wm title . "[file tail $TheFilename] — [tk appname]"
-    # TODO once i've got a filename set TheFilename & call my on_save
+    set dir [expr {$TheFilename eq "" ? "." : [file dirname $TheFilename]}]
+    if {[set filename [tk_getSaveFile -initialdir $dir \
+            -filetypes {{{AltKey files} {.key}} {{All files} {*}}} \
+            -title "[tk appname] — Save As" -parent .]] ne ""} {
+        set TheFilename $filename
+        wm title . "[file tail $TheFilename] — [tk appname]"
+        my on_save
+    }
 }
 
 oo::define Gui method on_run {} {
@@ -181,19 +205,38 @@ oo::define Gui method on_about {} {
 }
 
 oo::define Gui method on_quit {} {
-    my maybe_save
+    if {![my maybe_save]} return
     set config [Config new]
-    $config set_last_filename $TheFilename
+    $config set_last_filename [file normalize $TheFilename]
     $config save
     exit
 }
 
+oo::define Gui method clear {} {
+    $HintedText clear
+    $UnhintedText clear
+    $UnhintedText focus
+}
+
+oo::define Gui method read_file {} {
+    wm title . "[file tail $TheFilename] — [tk appname]"
+    my clear
+    $UnhintedText insert end [readFile $TheFilename]
+    $UnhintedText mark set insert 1.0
+    $UnhintedText edit modified 0
+    my on_run
+}
+
 oo::define Gui method maybe_save {} {
     if {[$UnhintedText edit modified]} {
-        # TODO prompt to save unsaved changes & if yes, call on_save
-        puts maybe_save
-        $UnhintedText edit modified 0
+        set reply [MaybeSaveForm show "[tk appname] — Unsaved Changes" \
+            "Save unsaved changes?"]
+        switch $reply {
+            cancel { return 0 }
+            save { my on_save }
+        }
     }
+    return 1
 }
 
 oo::define Gui method add_tags text_edit {

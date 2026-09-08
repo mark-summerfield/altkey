@@ -29,6 +29,7 @@ oo::define BasicTextEdit method MakeBindings {} {
     bind $Text <Control-Delete> [callback on_ctrl_del]
     bind $Text <Control-BackSpace> [callback on_ctrl_bs]
     bind $Text <Control-a> [callback on_ctrl_a]
+    bind $Text <Control-'> [callback on_ctrl_single_quote]
     bind $Text <'> [callback on_single_quote]
 }
 
@@ -51,6 +52,8 @@ oo::define BasicTextEdit method clear {} {
     $Text edit reset
     $Text edit modified 0
 }
+
+oo::define BasicTextEdit method all {} { string trim [$Text get 1.0 end] }
 
 oo::define BasicTextEdit method first_line {} {
     string trim [$Text get 1.0 2.0]
@@ -114,6 +117,11 @@ oo::define BasicTextEdit method on_ctrl_del {} {
 }
 
 oo::define BasicTextEdit method on_ctrl_a {} { $Text tag add sel 1.0 end }
+
+oo::define BasicTextEdit method on_ctrl_single_quote {} {
+    $Text insert insert '
+    return -code break
+}
 
 oo::define BasicTextEdit method on_single_quote {} {
     $Text insert insert ’
