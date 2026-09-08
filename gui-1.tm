@@ -45,12 +45,16 @@ oo::define Gui method prepare_ui {} {
 }
 
 oo::define Gui method make_widgets {} {
-    ttk::frame .mf
-    ttk::frame .mf.cf
-    ttk::frame .mf.cf.ctrl_frame
+    my make_frames
     my make_buttons
     my make_central_area
     my make_statusbar
+}
+
+oo::define Gui method make_frames {} {
+    ttk::frame .mf
+    ttk::frame .mf.cf
+    ttk::frame .mf.cf.ctrl_frame
 }
 
 oo::define Gui method make_buttons {} {
@@ -235,7 +239,7 @@ oo::define Gui method on_run {} {
         }
     }
     my process_lines $lines $comment
-    puts on_run ;# TODO update "n/m 0%" and display unused
+    $HintedText mark set insert 1.0
 }
 
 oo::define Gui method on_config {} { ConfigForm new }
@@ -292,4 +296,5 @@ oo::define Gui method process_lines {lines comment} {
     if {![$HintedText isempty]} { $HintedText insert end \n }
     if {$comment ne ""} { $HintedText insert end $comment\n }
     foreach line $hinted { $HintedText insert end $line\n }
+    puts process_lines ;# TODO update "n/m 0%" and display unused in HintedText
 }
