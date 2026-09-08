@@ -18,7 +18,8 @@ README.md
 
 st.sh
 
-# NOTE whenever the Unhinted text edit is changed call
-# apply_unhinted_highlighting & apply_hinted_highlighting
+# TODO on_run: update "n/m 0%" and display unused
+# TODO synchronize vertical scrollbars
+# TODO add highlighting (different for unhinted & hinted)
 
 # vim: syn=yaml

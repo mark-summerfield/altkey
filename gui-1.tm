@@ -1,6 +1,7 @@
 # Copyright © 2026 Mark Summerfield. All rights reserved.
 
 package require about_form
+package require altkey
 package require basic_text_edit
 package require config
 package require config_form
@@ -47,6 +48,12 @@ oo::define Gui method make_widgets {} {
     ttk::frame .mf
     ttk::frame .mf.cf
     ttk::frame .mf.cf.ctrl_frame
+    my make_buttons
+    my make_central_area
+    my make_statusbar
+}
+
+oo::define Gui method make_buttons {} {
     set width 8
     ttk::button .mf.cf.ctrl_frame.new_button -text New -underline 0 \
             -command [callback on_new] -width $width -compound left \
@@ -73,22 +80,37 @@ oo::define Gui method make_widgets {} {
     ttk::button .mf.cf.ctrl_frame.quit_button -text Quit -underline 0 \
             -command [callback on_quit] -width $width -compound left \
             -image [ui::icon quit.svg $::ICON_SIZE]
+}
+
+oo::define Gui method make_central_area {} {
     ttk::label .mf.cf.unhinted_label -text Unhinted -underline 0
     ttk::label .mf.cf.hinted_label -text Hinted -underline 0
     set UnhintedText [BasicTextEdit new .mf.cf]
     my add_tags [$UnhintedText tk_text]
     set HintedText [BasicTextEdit new .mf.cf]
+    $HintedText configure -undo 0
     my add_tags [$HintedText tk_text]
+}
+
+oo::define Gui method make_statusbar {} {
     ttk::frame .mf.status_frame
     ttk::label .mf.status_frame.unused_label_label -text Unused
     ttk::label .mf.status_frame.unused_label -relief sunken
     ttk::label .mf.status_frame.done_label_label -text Done 
-    ttk::label .mf.status_frame.done_label -text 0/0 -relief sunken
+    ttk::label .mf.status_frame.done_label -text "0/0 • 0%" -relief sunken
 }
 
 oo::define Gui method make_layout {} {
     const opts "-pady 3 -padx 3"
     pack .mf.status_frame -fill x -anchor n -side bottom
+    my layout_buttons $opts
+    my layout_central_area $opts
+    pack .mf.cf -fill both -expand 1 -anchor n -side top
+    my layout_statusbar $opts
+    pack .mf -fill both -expand 1
+}
+
+oo::define Gui method layout_buttons opts {
     pack .mf.cf.ctrl_frame.new_button {*}$opts
     pack .mf.cf.ctrl_frame.open_button {*}$opts
     pack .mf.cf.ctrl_frame.save_button {*}$opts
@@ -103,6 +125,9 @@ oo::define Gui method make_layout {} {
             {*}$opts
     pack .mf.cf.ctrl_frame.config_button -side bottom -fill y -anchor s \
             {*}$opts
+}
+
+oo::define Gui method layout_central_area opts {
     grid .mf.cf.ctrl_frame -row 0 -column 0 -rowspan 2 -sticky ns
     grid .mf.cf.unhinted_label -row 0 -column 1
     grid .mf.cf.hinted_label -row 0 -column 2
@@ -111,12 +136,13 @@ oo::define Gui method make_layout {} {
     grid rowconfigure .mf.cf 1 -weight 1
     grid columnconfigure .mf.cf 1 -weight 1 -uniform 1
     grid columnconfigure .mf.cf 2 -weight 1 -uniform 1
-    pack .mf.cf -fill both -expand 1 -anchor n -side top
+}
+
+oo::define Gui method layout_statusbar opts {
     pack .mf.status_frame.unused_label_label -side left {*}$opts
     pack .mf.status_frame.unused_label -side left -fill x -expand 1 {*}$opts
     pack .mf.status_frame.done_label -side right -fill x {*}$opts
     pack .mf.status_frame.done_label_label -side right {*}$opts
-    pack .mf -fill both -expand 1
 }
 
 oo::define Gui method make_bindings {} {
@@ -143,12 +169,11 @@ oo::define Gui method on_startup {} {
     if {$::argc} {
         set TheFilename [lindex $::argv 0]
         my read_file
+    } elseif {[set TheFilename [[Config new] last_filename]] ne ""} {
+        my read_file
     } else {
-        if {[set TheFilename [[Config new] last_filename]] ne ""} {
-            my read_file
-        }
+        my on_new
     }
-    $UnhintedText focus
 }
 
 oo::define Gui method on_unhinted {} { $UnhintedText focus }
@@ -194,7 +219,23 @@ oo::define Gui method on_saveas {} {
 }
 
 oo::define Gui method on_run {} {
-    puts on_run ;# TODO
+    if {[$UnhintedText isempty]} return
+    $HintedText clear
+    set comment ""
+    set lines [list]
+    foreach line [split [$UnhintedText all] \n] {
+        set line [string trim $line]
+        if {$line eq ""} {
+            my process_lines $lines $comment
+            set lines [list]
+        } elseif {![string match "#*" $line]} {
+            lappend lines $line
+        } else {
+            set comment $line
+        }
+    }
+    my process_lines $lines $comment
+    puts on_run ;# TODO update "n/m 0%" and display unused
 }
 
 oo::define Gui method on_config {} { ConfigForm new }
@@ -243,4 +284,12 @@ oo::define Gui method add_tags text_edit {
     $text_edit tag configure ul -foreground blue -underline 1
     $text_edit tag configure green -foreground darkgreen
     $text_edit tag configure gray -foreground gray
+}
+
+oo::define Gui method process_lines {lines comment} {
+    if {[llength $lines] == 0} { return }
+    set hinted [::altkey::altkey $lines]
+    if {![$HintedText isempty]} { $HintedText insert end \n }
+    if {$comment ne ""} { $HintedText insert end $comment\n }
+    foreach line $hinted { $HintedText insert end $line\n }
 }
