@@ -25,7 +25,7 @@ oo::define Gui constructor {} {
 
 oo::define Gui method show {} {
     wm deiconify .
-    wm minsize . 720 640
+    wm minsize . 640 480
     wm geometry . [[Config new] geometry]
     raise .
     update
@@ -315,7 +315,7 @@ oo::define Gui method maybe_save {} {
 oo::define Gui method add_tags text_edit {
     $text_edit tag configure comment -foreground darkgreen \
             -background lavender -font Italic
-    $text_edit tag configure ampersand -foreground blue -font Bold
+    $text_edit tag configure ampersand -foreground darkmagenta -font Bold
     $text_edit tag configure red -foreground red
     $text_edit tag configure green -foreground green
     $text_edit tag configure todo -foreground red
