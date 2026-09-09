@@ -19,6 +19,7 @@ oo::define Gui constructor {} {
     tk appname AltKey
     set TheFilename ""
     Config new ;# we need tk scaling done early
+    my make_fonts
     my make_ui
 }
 
@@ -29,6 +30,20 @@ oo::define Gui method show {} {
     raise .
     update
     my on_startup
+}
+
+oo::define Gui method make_fonts {} {
+    set config [Config new]
+    set family [$config family]
+    set size [$config size]
+    foreach name {Roman Bold Italic BoldItalic} {
+        catch { font delete $name }
+    }
+    font create Roman -family $family -size $size
+    font create Bold -family $family -size $size -weight bold
+    font create Italic -family $family -size $size -slant italic
+    font create BoldItalic -family $family -size $size -weight bold \
+        -slant italic
 }
 
 oo::define Gui method make_ui {} {
@@ -48,7 +63,6 @@ oo::define Gui method make_widgets {} {
     my make_frames
     my make_buttons
     my make_central_area
-    my make_statusbar
 }
 
 oo::define Gui method make_frames {} {
@@ -90,27 +104,19 @@ oo::define Gui method make_central_area {} {
     ttk::label .mf.cf.unhinted_label -text Unhinted -underline 0
     ttk::label .mf.cf.hinted_label -text Hinted -underline 0
     set UnhintedText [BasicTextEdit new .mf.cf]
+    $UnhintedText configure -font Roman
     my add_tags [$UnhintedText tk_text]
     set HintedText [BasicTextEdit new .mf.cf]
-    $HintedText configure -undo 0
+    set tab [expr {2 * [font measure Roman 0]}]
+    $HintedText configure -font Roman -undo 0 -tabs $tab
     my add_tags [$HintedText tk_text]
-}
-
-oo::define Gui method make_statusbar {} {
-    ttk::frame .mf.status_frame
-    ttk::label .mf.status_frame.unused_label_label -text Unused
-    ttk::label .mf.status_frame.unused_label -relief sunken
-    ttk::label .mf.status_frame.done_label_label -text Done 
-    ttk::label .mf.status_frame.done_label -text "0/0 • 0%" -relief sunken
 }
 
 oo::define Gui method make_layout {} {
     const opts "-pady 3 -padx 3"
-    pack .mf.status_frame -fill x -anchor n -side bottom
     my layout_buttons $opts
     my layout_central_area $opts
     pack .mf.cf -fill both -expand 1 -anchor n -side top
-    my layout_statusbar $opts
     pack .mf -fill both -expand 1
 }
 
@@ -140,13 +146,6 @@ oo::define Gui method layout_central_area opts {
     grid rowconfigure .mf.cf 1 -weight 1
     grid columnconfigure .mf.cf 1 -weight 1 -uniform 1
     grid columnconfigure .mf.cf 2 -weight 1 -uniform 1
-}
-
-oo::define Gui method layout_statusbar opts {
-    pack .mf.status_frame.unused_label_label -side left {*}$opts
-    pack .mf.status_frame.unused_label -side left -fill x -expand 1 {*}$opts
-    pack .mf.status_frame.done_label -side right -fill x {*}$opts
-    pack .mf.status_frame.done_label_label -side right {*}$opts
 }
 
 oo::define Gui method make_bindings {} {
@@ -242,7 +241,19 @@ oo::define Gui method on_run {} {
     $HintedText mark set insert 1.0
 }
 
-oo::define Gui method on_config {} { ConfigForm new }
+oo::define Gui method on_config {} {
+    set config [Config new]
+    set ok [Ref new 0]
+    set family [$config family]
+    set size [$config size]
+    set form [ConfigForm new $ok]
+    tkwait window [$form form]
+    if {[$ok get]} {
+        if {$family ne [$config family] || $size != [$config size]} {
+            my make_fonts
+        }
+    }
+}
 
 oo::define Gui method on_about {} {
     AboutForm new "An Alt+Key Keyboard accelerator helper" \
@@ -285,16 +296,62 @@ oo::define Gui method maybe_save {} {
 }
 
 oo::define Gui method add_tags text_edit {
+    $text_edit tag configure comment -foreground darkgreen \
+            -background lavender -font Italic
+    $text_edit tag configure red -foreground red
+    $text_edit tag configure green -foreground green
+    $text_edit tag configure todo -foreground red
+    $text_edit tag configure n -foreground darkmagenta
+    $text_edit tag configure key -foreground blue
     $text_edit tag configure ul -foreground blue -underline 1
-    $text_edit tag configure green -foreground darkgreen
-    $text_edit tag configure gray -foreground gray
+    $text_edit tag configure status -background lavenderblush
+    $text_edit tag configure istatus -background lavenderblush \
+            -foreground green -font Italic
+    $text_edit tag configure unused -foreground navy
 }
 
 oo::define Gui method process_lines {lines comment} {
     if {[llength $lines] == 0} { return }
     set hinted [::altkey::altkey $lines]
     if {![$HintedText isempty]} { $HintedText insert end \n }
-    if {$comment ne ""} { $HintedText insert end $comment\n }
-    foreach line $hinted { $HintedText insert end $line\n }
-    puts process_lines ;# TODO update "n/m 0%" and display unused in HintedText
+    if {$comment ne ""} {
+        $HintedText insert end $comment\n comment
+    }
+    foreach line $hinted { my show_line $line }
+    lassign [my unused_and_n_m $hinted] unused n m
+    set tags [list status [expr {$n == $m ? "green" : "red"}]]
+    $HintedText insert end "$n/$m" $tags
+    if {$n == $m} {
+        $HintedText insert end \n status
+    } else {
+        $HintedText insert end " Unused:\n" istatus
+        $HintedText insert end [join $unused ""]\n {status unused}
+    }
+}
+
+oo::define Gui method show_line line {
+    if {[set i [string first & $line]] > -1} {
+        $HintedText insert end \
+                [string toupper [string index $line $i+1]]\t key
+        $HintedText insert end $i\t n
+        $HintedText insert end [string range $line 0 $i-1]
+        $HintedText insert end [string index $line $i+1] ul
+        $HintedText insert end [string range $line $i+2 end]\n
+    } else {
+        $HintedText insert end "  \t   \t$line\n" todo
+    }
+}
+
+oo::define Gui method unused_and_n_m hinted {
+    set used 0
+    set unused [dict create]
+    foreach c [split $::altkey::ALPHABET ""] { dict set unused $c {} }
+    foreach line $hinted {
+        if {[set i [string first & $line]] >= 0} {
+            set c [string toupper [string index $line $i+1]]
+            set unused [dict remove $unused $c]
+            incr used
+        }
+    }
+    list [lsort [dict keys $unused]] $used [llength $hinted]
 }

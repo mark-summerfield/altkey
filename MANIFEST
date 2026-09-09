@@ -18,8 +18,6 @@ README.md
 
 st.sh
 
-# TODO on_run: update "n/m 0%" and display unused
-# TODO synchronize vertical scrollbars
-# TODO add highlighting (different for unhinted & hinted)
+# TODO add unhinted highlighting
 
 # vim: syn=yaml
