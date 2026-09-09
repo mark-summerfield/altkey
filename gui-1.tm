@@ -253,7 +253,6 @@ oo::define Gui method on_run {} {
         }
     }
     my process_lines $lines $comment
-    $HintedText mark set insert 1.0
     my on_modified
 }
 
@@ -294,9 +293,9 @@ oo::define Gui method read_file {} {
     wm title . "[file tail $TheFilename] — [tk appname]"
     my clear
     $UnhintedText insert end [readFile $TheFilename]
+    my on_modified
     $UnhintedText mark set insert 1.0
     $UnhintedText edit modified 0
-    my on_modified
     my on_run
 }
 
@@ -332,9 +331,7 @@ oo::define Gui method process_lines {lines comment} {
     if {[llength $lines] == 0} { return }
     set hinted [::altkey::altkey $lines]
     if {![$HintedText isempty]} { $HintedText insert end \n }
-    if {$comment ne ""} {
-        $HintedText insert end $comment\n comment
-    }
+    if {$comment ne ""} { $HintedText insert end $comment\n comment }
     foreach line $hinted { my show_line $line }
     lassign [my unused_and_n_m $hinted] unused n m
     set tags [list status [expr {$n == $m ? "green" : "red"}]]
