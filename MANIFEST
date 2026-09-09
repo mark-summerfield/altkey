@@ -1,4 +1,4 @@
-altkey.tk
+altkey.tk # VERSION
 gui-1.tm
 basic_text_edit-1.tm
 config-1.tm
@@ -17,7 +17,5 @@ ui-1.tm
 README.md
 
 st.sh
-
-# TODO add unhinted highlighting
 
 # vim: syn=yaml

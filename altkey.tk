@@ -10,6 +10,6 @@ tcl::tm::path add $APPPATH
 
 package require gui
 
-const VERSION 0.1.0
+const VERSION 1.0.0
 
 [Gui new] show
