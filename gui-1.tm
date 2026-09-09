@@ -149,6 +149,7 @@ oo::define Gui method layout_central_area opts {
 }
 
 oo::define Gui method make_bindings {} {
+    bind [$UnhintedText tk_text] <<Modified>> [callback on_modified]
     bind . <F5> [callback on_run]
     bind . <Alt-a> [callback on_saveas]
     bind . <Alt-b> [callback on_about]
@@ -169,10 +170,11 @@ oo::define Gui method make_bindings {} {
 }
 
 oo::define Gui method on_startup {} {
-    if {$::argc} {
-        set TheFilename [lindex $::argv 0]
-        my read_file
-    } elseif {[set TheFilename [[Config new] last_filename]] ne ""} {
+    if {$::argc} { set TheFilename [lindex $::argv 0] }
+    if {![file isfile $TheFilename]} {
+        set TheFilename [[Config new] last_filename]
+    }
+    if {[file isfile $TheFilename]} {
         my read_file
     } else {
         my on_new
@@ -182,6 +184,19 @@ oo::define Gui method on_startup {} {
 oo::define Gui method on_unhinted {} { $UnhintedText focus }
 
 oo::define Gui method on_hinted {} { $HintedText focus }
+
+oo::define Gui method on_modified {} {
+    foreach tag {ampersand comment ul} {
+        $UnhintedText tag remove $tag 1.0 end
+    }
+    foreach index [$UnhintedText search -regexp -all {^#} 1.0] {
+        $UnhintedText tag add comment $index "$index lineend"
+    }
+    foreach index [$UnhintedText search -regexp -all & 1.0] {
+        $UnhintedText tag add ampersand $index "$index +1c"
+        $UnhintedText tag add ul "$index +1c" "$index +2c"
+    }
+}
 
 oo::define Gui method on_new {} {
     if {![my maybe_save]} return
@@ -239,6 +254,7 @@ oo::define Gui method on_run {} {
     }
     my process_lines $lines $comment
     $HintedText mark set insert 1.0
+    my on_modified
 }
 
 oo::define Gui method on_config {} {
@@ -280,6 +296,7 @@ oo::define Gui method read_file {} {
     $UnhintedText insert end [readFile $TheFilename]
     $UnhintedText mark set insert 1.0
     $UnhintedText edit modified 0
+    my on_modified
     my on_run
 }
 
@@ -298,6 +315,7 @@ oo::define Gui method maybe_save {} {
 oo::define Gui method add_tags text_edit {
     $text_edit tag configure comment -foreground darkgreen \
             -background lavender -font Italic
+    $text_edit tag configure ampersand -foreground blue -font Bold
     $text_edit tag configure red -foreground red
     $text_edit tag configure green -foreground green
     $text_edit tag configure todo -foreground red
