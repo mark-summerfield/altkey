@@ -11,8 +11,8 @@ proc ui::wishinit {} {
     ttk::style configure Treeview.Heading -font TkDefaultFont
     ttk::style configure TCheckbutton -indicatorsize \
         [expr {$::LINEHEIGHT * 0.75}]
-    set ::ICON_SIZE [expr {max(24, round(20 * [tk scaling]))}]
-    set ::MENU_ICON_SIZE [expr {max(20, round(14 * [tk scaling]))}]
+    set ::ICON_SIZE [expr {max(20, round(16 * [tk scaling]))}]
+    set ::MENU_ICON_SIZE [expr {max(16, round(12 * [tk scaling]))}]
 }
 
 proc ui::icon {svg {width 0}} {
