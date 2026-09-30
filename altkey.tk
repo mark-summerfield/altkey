@@ -9,7 +9,7 @@ if {![catch {file readlink [info script]} name]} {
 tcl::tm::path add $APPPATH
 
 const APPNAME AltKey
-const VERSION 1.0.0
+const VERSION 1.0.1
 
 package require config
 Config new ;# we need tk scaling done early
