@@ -8,8 +8,12 @@ if {![catch {file readlink [info script]} name]} {
 }
 tcl::tm::path add $APPPATH
 
-package require gui
-
+const APPNAME AltKey
 const VERSION 1.0.0
+
+package require config
+Config new ;# we need tk scaling done early
+
+package require gui
 
 [Gui new] show

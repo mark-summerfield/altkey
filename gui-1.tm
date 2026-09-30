@@ -16,9 +16,8 @@ oo::singleton create Gui {
 
 oo::define Gui constructor {} {
     ui::wishinit
-    tk appname AltKey
+    tk appname $::APPNAME
     set TheFilename ""
-    Config new ;# we need tk scaling done early
     my make_fonts
     my make_ui
 }
