@@ -3,6 +3,6 @@
 oo::class create Ref {
     variable Value
     constructor value { set Value $value }
-    method get {} { set Value }
+    method get {} { return $Value }
     method set value { set Value $value }
 }
