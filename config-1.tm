@@ -17,6 +17,8 @@ oo::define Config constructor {} {
     set Filename [util::get_ini_filename $::APPNAME]
     set Blinking 1
     set Geometry ""
+    set FontFamily [font configure TkDefaultFont -family]
+    set FontSize [font configure TkDefaultFont -size]
     set LastFilename ""
     if {[file exists $Filename] && [file size $Filename]} {
         set ini [ini::open $Filename -encoding utf-8 r]
@@ -28,9 +30,7 @@ oo::define Config constructor {} {
                 ttk::style configure . -insertofftime 0
             }
             set Geometry [ini::value $ini General Geometry $Geometry]
-            set FontFamily [font configure TkDefaultFont -family]
             set FontFamily [ini::value $ini General FontFamily $FontFamily]
-            set FontSize [font configure TkDefaultFont -size]
             set FontSize [ini::value $ini General FontSize $FontSize]
             set LastFilename [ini::value $ini General LastFilename \
                 $LastFilename]
