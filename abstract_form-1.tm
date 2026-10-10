@@ -1,8 +1,6 @@
 # Copyright © 2025 Mark Summerfield. All rights reserved.
 
-oo::abstract create AbstractForm {
-    variable Form
-}
+oo::abstract create AbstractForm { variable Form }
 
 oo::define AbstractForm constructor {form on_close {modal 1}} {
     set Form $form
@@ -17,7 +15,7 @@ oo::define AbstractForm constructor {form on_close {modal 1}} {
     wm protocol $Form WM_DELETE_WINDOW $on_close
 }
 
-oo::define AbstractForm method form {} { return $Form }
+oo::define AbstractForm method form {} { set Form }
 
 oo::define AbstractForm method show_modal {{focus_widget ""}} {
     wm deiconify $Form
