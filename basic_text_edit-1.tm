@@ -8,6 +8,8 @@ oo::class create BasicTextEdit {
     variable Text
 }
 
+oo::define BasicTextEdit initialize { variable N 0 }
+
 oo::define BasicTextEdit constructor parent {
     classvariable N
     if {![string match *. $parent]} { set parent $parent. }
