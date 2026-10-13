@@ -53,9 +53,9 @@ oo::define ConfigForm method make_widgets {} {
         -command [callback on_font] {*}$opts
     $tip .configForm.mf.fontButton "The font to use.\nBest to set the\
         application’s scale (and restart) first."
-    set family [$config family]
     ttk::label .configForm.mf.fontLabel -relief sunken \
-        -text "$family [$config size]" -font [font create -family $family]
+            -text "$FontFamily $FontSize" \
+            -font [font create -family $FontFamily]
     ttk::label .configForm.mf.configFileLabel -foreground gray25 \
         -text "Config file"
     ttk::label .configForm.mf.configFilenameLabel -foreground gray25 \
