@@ -19,9 +19,10 @@ oo::define AbstractForm method form {} { set Form }
 
 oo::define AbstractForm method show_modal {{focus_widget ""}} {
     wm deiconify $Form
+    update idletasks
     grab set $Form
     raise $Form
-    update
+    update idletasks
     my MaybeMove
     focus $Form
     if {$focus_widget ne ""} { focus $focus_widget }
@@ -30,7 +31,7 @@ oo::define AbstractForm method show_modal {{focus_widget ""}} {
 oo::define AbstractForm method show_modeless {{focus_widget ""}} {
     wm deiconify $Form
     raise $Form
-    update
+    update idletasks
     my MaybeMove
     focus $Form
     if {$focus_widget ne ""} { focus $focus_widget }

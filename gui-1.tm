@@ -27,7 +27,7 @@ oo::define Gui method show {} {
     wm minsize . 640 480
     wm geometry . [[Config new] geometry]
     raise .
-    update
+    update idletasks
     my on_startup
 }
 
